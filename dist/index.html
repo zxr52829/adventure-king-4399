@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>勇者之路 — 本地运行版</title>
+<style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --dim: #6e7681; --accent: #d4763a; --stage-w: 750; --stage-h: 563; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--fg); font-family: system-ui, "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    padding: 10px;
+  }
+  /* 舞台按窗口可用空间等比铺满，不再锁 750px */
+  #stage {
+    background: #000;
+    box-shadow: 0 12px 48px rgba(0,0,0,.65); border-radius: 4px; overflow: hidden;
+    flex: 0 1 auto;
+    width: min(calc(100vw - 20px), calc((100vh - 76px) * 750 / 563));
+    max-width: none;
+    aspect-ratio: 750 / 563;
+    max-height: calc(100vh - 76px);
+  }
+  #stage ruffle-player, #stage embed, #stage object { display: block; width: 100% !important; height: 100% !important; }
+  .bar { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--dim); flex: 0 0 auto; }
+  .bar b { color: var(--fg); font-weight: 500; }
+  .zoom { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 46px; }
+  button {
+    background: transparent; color: var(--fg); border: 1px solid #30363d; border-radius: 6px;
+    padding: 5px 12px; font-size: 13px; cursor: pointer; transition: border-color .15s, color .15s;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* 全屏：容器铺满，游戏按比例居中放大 */
+  body.fs { padding: 0; gap: 0; }
+  body.fs .bar {
+    position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%);
+    background: rgba(13,17,23,.82); padding: 6px 14px; border-radius: 8px;
+    backdrop-filter: blur(6px); opacity: 0; transition: opacity .25s; z-index: 10;
+  }
+  body.fs:hover .bar { opacity: 1; }
+  body.fs #stage {
+    width: min(100vw, calc(100vh * 750 / 563));
+    max-height: 100vh; border-radius: 0; box-shadow: none;
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="container" style="width:100%;height:100%"></div>
+  </div>
+  <div class="bar">
+    <b>勇者之路</b>
+    <span>4399 · 本地运行版</span>
+    <button id="reload">重新载入</button>
+    <button id="full">全屏</button>
+    <span class="zoom" id="zoom"></span>
+    <span id="status">Ruffle 初始化中…</span>
+  </div>
+
+  <script src="./ruffle/ruffle.js"></script>
+  <script>
+    const statusEl = document.getElementById('status');
+    const container = document.getElementById('container');
+    const stageEl = document.getElementById('stage');
+
+    function mount() {
+      container.innerHTML = '';
+      const ruffle = window.RufflePlayer.newest();
+      const player = ruffle.createPlayer();
+      player.style.width = '100%';
+      player.style.height = '100%';
+      container.appendChild(player);
+
+      player.addEventListener('loadedmetadata', () => {
+        statusEl.textContent = '运行中 · Ruffle 0.7.1';
+      });
+
+      player.ruffle().load({
+        url: './game.swf',
+        autoplay: 'on',
+        unmuteOverlay: 'visible',
+        splashScreen: false,
+        letterbox: 'on',
+        scale: 'showAll',          // 等比缩放，不变形
+        quality: 'high',
+        warnOnUnsupportedContent: false,
+        logLevel: 'warn'
+      }).catch((err) => {
+        statusEl.textContent = '加载失败：' + err;
+      });
+    }
+
+    // 实时显示放大倍数
+    const zoomEl = document.getElementById('zoom');
+    function updateZoom() {
+      const r = stageEl.getBoundingClientRect();
+      zoomEl.textContent = (r.width / 750).toFixed(2) + '×';
+    }
+    window.addEventListener('resize', updateZoom);
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.RufflePlayer = window.RufflePlayer || {};
+      window.RufflePlayer.config = { publicPath: './ruffle/', polyfills: true };
+      mount();
+      updateZoom();
+      // F 键快捷全屏（需在挂载前绑定，避免被 Ruffle 吃掉按键）
+      document.addEventListener('keydown', onKey, true);
+    });
+
+    document.getElementById('reload').addEventListener('click', () => {
+      statusEl.textContent = '重新载入中…';
+      mount();
+    });
+
+    const fullBtn = document.getElementById('full');
+    function toggleFull() {
+      const el = document.documentElement;
+      if (!document.fullscreenElement) {
+        (el.requestFullscreen || el.webkitRequestFullscreen).call(el).catch(() => {
+          // 浏览器拒绝时退化为页面内沉浸模式
+          document.body.classList.add('fs');
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+    document.addEventListener('fullscreenchange', () => {
+      const on = !!document.fullscreenElement;
+      document.body.classList.toggle('fs', on);
+      fullBtn.textContent = on ? '退出全屏' : '全屏';
+      setTimeout(updateZoom, 60);
+    });
+    fullBtn.addEventListener('click', toggleFull);
+
+    // F 键快捷全屏（捕获阶段，避免被 Ruffle 内部的按键处理吞掉）
+    function onKey(e) {
+      if (e.key === 'f' || e.key === 'F') { e.stopPropagation(); toggleFull(); }
+    }
+  </script>
+</body>
+</html>

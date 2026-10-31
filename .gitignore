@@ -1,0 +1,21 @@
+# 中间产物：SWF → XML 全量 dump（270MB，可随时用 FFDec 重新生成）
+xml/
+
+# FFDec 工具链本体（20MB，官方发布，不入库）
+tools/
+
+# 补丁实验的中间产物
+out/
+verify2/
+verify_text/
+patched/
+
+# 页面抓取的原始 HTML/JS（体积小但属临时数据）
+page.html
+page.utf8.html
+flashopen1.js
+server8.js
+
+# 系统文件
+.DS_Store
+Thumbs.db
